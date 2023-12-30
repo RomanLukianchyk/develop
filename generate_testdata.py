@@ -1,83 +1,50 @@
-import psycopg2
+import string
+from sqlalchemy.orm import sessionmaker
+from models import GroupModel, CourseModel, StudentModel, engine
 from faker import Faker
 import random
-import string
-from config import host, user, password, db_name
 
 fake = Faker()
-
 
 def generate_group_name():
     numbers = random.randint(10, 99)
     letters = ''.join(random.choices(string.ascii_letters, k=2))
     return f'{letters}-{numbers}'
 
-
 def generate_test_data():
-    connection = psycopg2.connect(
-        host=host,
-        user=user,
-        password=password,
-        database=db_name
-    )
+    Session = sessionmaker(bind=engine)
+    session = Session()
 
     try:
-        with connection.cursor() as cursor:
+        groups = [GroupModel(name=generate_group_name()) for _ in range(10)]
+        session.add_all(groups)
+        session.flush()
 
-            groups = [(generate_group_name(),) for _ in range(10)]
-            cursor.executemany("INSERT INTO GroupModel (name) VALUES (%s) RETURNING id", groups)
-            group_ids = [row[0] for row in cursor.fetchall()]
+        courses = [CourseModel(name=name) for name in ["Mathematics", "Biology", "Physics", "Chemistry", "History",
+                                                       "Literature", "Computer Science", "Art", "Economics", "Music"]]
+        session.add_all(courses)
+        session.flush()
 
-            courses_data = [
-                ("Mathematics",),
-                ("Biology",),
-                ("Physics",),
-                ("Chemistry",),
-                ("History",),
-                ("Literature",),
-                ("Computer Science",),
-                ("Art",),
-                ("Economics",),
-                ("Music",),
-            ]
-            cursor.executemany("INSERT INTO CourseModel (name) VALUES (%s) RETURNING id", courses_data)
-            course_ids = [row[0] for row in cursor.fetchall()]
+        students = [StudentModel(
+            group_id=random.choice(groups).id,
+            first_name=fake.first_name(),
+            last_name=fake.last_name()
+        ) for _ in range(200)]
+        session.add_all(students)
+        session.flush()
 
-            first_names = [fake.first_name() for _ in range(20)]
-            last_names = [fake.last_name() for _ in range(20)]
-            students_data = []
+        for student in students:
+            num_courses = random.randint(1, 3)
+            selected_courses = random.sample(courses, num_courses)
+            student.courses.extend(selected_courses)
 
-            for _ in range(200):
-                group_id = random.choice(group_ids)
-                first_name = random.choice(first_names)
-                last_name = random.choice(last_names)
-                cursor.execute(
-                    "INSERT INTO StudentModel (group_id, first_name, last_name) VALUES (%s, %s, %s) RETURNING id",
-                    (group_id, first_name, last_name)
-                )
-                student_id = cursor.fetchone()[0] if cursor.rowcount > 0 else None
-                students_data.append(student_id)
-
-            student_course_data = []
-            for student_id in students_data:
-                num_courses = random.randint(1, 3)
-                selected_courses = random.sample(course_ids, num_courses)
-                for course_id in selected_courses:
-                    student_course_data.append((student_id, course_id))
-
-            for data in student_course_data:
-                cursor.execute(
-                    "INSERT INTO StudentCourseRelation (student_id, course_id) VALUES (%s, %s)",
-                    data
-                )
-
-        connection.commit()
+        session.commit()
 
     except Exception as ex:
         print("[INFO] Error while working with PostgreSQL", ex)
 
     finally:
-        connection.close()
+        session.close()
         print("[INFO] PostgreSQL connection closed")
 
 

@@ -1,33 +1,38 @@
-import psycopg2
+from sqlalchemy import create_engine, text
+from sqlalchemy.orm import sessionmaker
 from config import host, user, password, db_name
 
+db_url = f"postgresql+psycopg2://{user}:{password}@{host}/{db_name}"
+engine = create_engine(db_url, echo=True)
+Session = sessionmaker(bind=engine)
+session = Session()
 
-def create_user_with_privileges():
-    connection = None
-    try:
-        connection = psycopg2.connect(
-            host=host,
-            user=user,
-            password=password,
-            database=db_name,
-        )
+try:
+    # Проверка наличия пользователя Roman
+    check_user_query = text("SELECT 1 FROM pg_roles WHERE rolname = 'Roman';")
+    result = session.execute(check_user_query).scalar()
 
-        connection.autocommit = True
+    if not result:
+        # Создание пользователя Roman
+        create_user_query = text("CREATE USER Roman WITH PASSWORD '12345';")
+        session.execute(create_user_query)
 
-        with connection.cursor() as cursor:
-            cursor.execute("CREATE USER Roman WITH PASSWORD '12345';")
-            print('[INFO] User created successfully')
-            cursor.execute("GRANT ALL PRIVILEGES ON DATABASE postgres TO Roman")
-            print('[INFO] Privileges granted successfully')
+        # Назначение роли суперпользователя
+        grant_superuser_query = text("ALTER USER Roman WITH SUPERUSER;")
+        session.execute(grant_superuser_query)
 
-    except Exception as ex:
-        print("[INFO] Error while working with PostgreSQL", ex)
+    # Предоставление привилегий
+    grant_privileges_query = text("GRANT ALL PRIVILEGES ON DATABASE postgres TO Roman;")
+    session.execute(grant_privileges_query)
 
-    finally:
-        if connection:
-            connection.close()
-            print("[INFO] PostgreSQL connection closed")
+    session.commit()
 
+    print('[INFO] User created and privileges granted successfully')
 
-if __name__ == "__main__":
-    create_user_with_privileges()
+except Exception as ex:
+    print("[INFO] Error while working with PostgreSQL", ex)
+    session.rollback()
+
+finally:
+    session.close()
+    print("[INFO] PostgreSQL connection closed")
