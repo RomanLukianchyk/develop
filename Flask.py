@@ -35,20 +35,16 @@ class StudentsInCourse(Resource):
 
 class NewStudent(Resource):
     def get(self):
-        # Извлекаем параметры из URL-запроса
         group_id = request.args.get('group_id')
         first_name = request.args.get('first_name')
         last_name = request.args.get('last_name')
 
-        # Проверяем, что все параметры присутствуют
         if group_id is None or first_name is None or last_name is None:
             return {"message": "All parameters (group_id, first_name, last_name) are required"}, 400
 
         try:
-            # Преобразовываем group_id в int (если это необходимо)
             group_id = int(group_id)
 
-            # Создаем нового студента и добавляем его в базу данных
             new_student = StudentModel(group_id=group_id, first_name=first_name, last_name=last_name)
             session.add(new_student)
             session.commit()
@@ -59,43 +55,76 @@ class NewStudent(Resource):
             return {"message": "Invalid group_id format"}, 400
 
 
-
 class AddStudentToCourse(Resource):
-    def post(self):
-        data = request.get_json()
-        student_id = data["student_id"]
-        course_id = data["course_id"]
+    def post(self, student_id, course_id):
+        try:
+            student_id = int(student_id)
+            course_id = int(course_id)
 
-        student_to_add = session.query(StudentModel).get(student_id)
-        course_to_add = session.query(CourseModel).get(course_id)
+            student_to_add = session.query(StudentModel).get(student_id)
+            course_to_add = session.query(CourseModel).get(course_id)
 
-        if student_to_add and course_to_add:
-            if course_to_add not in student_to_add.courses:
-                student_to_add.courses.append(course_to_add)
-                session.commit()
-                return {"message": "Student added to the course successfully"}
+            if student_to_add and course_to_add:
+                if course_to_add not in student_to_add.courses:
+                    student_to_add.courses.append(course_to_add)
+                    session.commit()
+                    return {"message": "Student added to the course successfully"}
+                else:
+                    return {"message": "Student is already in the course"}
             else:
-                return {"message": "Student is already in the course"}
-        else:
-            return {"message": "Student or course not found"}
+                return {"message": "Student or course not found"}
+
+        except ValueError:
+            return {"message": "Invalid student_id or course_id format"}, 400
+
+
 
 class DeleteStudent(Resource):
     def delete(self, student_id):
-        student_to_delete = session.query(StudentModel).get(student_id)
-        if student_to_delete:
-            session.delete(student_to_delete)
-            session.commit()
-            return {"message": "Student deleted successfully"}
-        else:
-            return {"message": "Student not found"}
+        try:
+            student_id = int(student_id)
+
+            student_to_delete = session.query(StudentModel).get(student_id)
+
+            if student_to_delete:
+                session.delete(student_to_delete)
+                session.commit()
+                return {"message": "Student deleted successfully"}
+            else:
+                return {"message": "Student not found"}
+
+        except ValueError:
+            return {"message": "Invalid student_id format"}, 400
+
+class RemoveStudentFromCourse(Resource):
+    def delete(self, student_id, course_id):
+        try:
+            student_id = int(student_id)
+            course_id = int(course_id)
+
+            student_to_remove = session.query(StudentModel).get(student_id)
+            course_to_remove = session.query(CourseModel).get(course_id)
+
+            if student_to_remove and course_to_remove:
+                if course_to_remove in student_to_remove.courses:
+                    student_to_remove.courses.remove(course_to_remove)
+                    session.commit()
+                    return {"message": "Student removed from the course successfully"}
+                else:
+                    return {"message": "Student is not enrolled in the specified course"}
+            else:
+                return {"message": "Student or course not found"}
+
+        except ValueError:
+            return {"message": "Invalid student_id or course_id format"}, 400
 
 
 api.add_resource(Groups, "/groups")
 api.add_resource(StudentsInCourse, "/students-in-course", "/students-in-course/<string:course_name>")
 api.add_resource(NewStudent, "/new-student")
-api.add_resource(DeleteStudent, "/delete-student/<int:student_id>")
-api.add_resource(AddStudentToCourse, "/add-student-to-course")
-
+api.add_resource(DeleteStudent, "/delete-student/<int:student_id>", methods=['DELETE'])
+api.add_resource(AddStudentToCourse, "/add-student-to-course/<int:student_id>/<int:course_id>", methods=['POST'])
+api.add_resource(RemoveStudentFromCourse, "/remove-student-from-course/<int:student_id>/<int:course_id>", methods=['DELETE'])
 
 
 
