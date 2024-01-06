@@ -1,8 +1,7 @@
-from flask import Flask, request
+from flask import Flask, request, jsonify
 from flask_restful import Resource, Api
-
 from ORM import count_students_in_groups
-from models import Base, engine, GroupModel, CourseModel, StudentModel, student_course_relation
+from models import Base, engine, CourseModel, StudentModel
 from sqlalchemy.orm import sessionmaker
 
 app = Flask(__name__)
@@ -15,11 +14,9 @@ session = Session()
 
 
 class Groups(Resource):
-    def get(self):
-        max_students = request.args.get('max_students', default=1, type=int)
+    def get(self, max_students=20):
         groups = count_students_in_groups(max_students)
-        return [{"name": group.name, "student_count": group.student_count} for group in groups]
-
+        return jsonify([{"name": group.name, "student_count": group.student_count} for group in groups])
 
 
 class StudentsInCourse(Resource):
@@ -34,25 +31,22 @@ class StudentsInCourse(Resource):
 
 
 class NewStudent(Resource):
-    def get(self):
-        group_id = request.args.get('group_id')
-        first_name = request.args.get('first_name')
-        last_name = request.args.get('last_name')
-
-        if group_id is None or first_name is None or last_name is None:
-            return {"message": "All parameters (group_id, first_name, last_name) are required"}, 400
-
+    def post(self, first_name, last_name, group_id):
         try:
             group_id = int(group_id)
 
-            new_student = StudentModel(group_id=group_id, first_name=first_name, last_name=last_name)
+            last_student = session.query(StudentModel).order_by(StudentModel.id.desc()).first()
+            student_id = last_student.id + 1 if last_student else 1
+
+            new_student = StudentModel(id=student_id, group_id=group_id, first_name=first_name, last_name=last_name)
             session.add(new_student)
             session.commit()
 
-            return {"message": "New student added successfully"}
+            return {"message": "New student added successfully", "student_id": student_id}
 
         except ValueError:
             return {"message": "Invalid group_id format"}, 400
+
 
 
 class AddStudentToCourse(Resource):
@@ -119,9 +113,9 @@ class RemoveStudentFromCourse(Resource):
             return {"message": "Invalid student_id or course_id format"}, 400
 
 
-api.add_resource(Groups, "/groups")
+api.add_resource(Groups, "/groups/<int:max_students>", methods=['GET'])
 api.add_resource(StudentsInCourse, "/students-in-course", "/students-in-course/<string:course_name>")
-api.add_resource(NewStudent, "/new-student")
+api.add_resource(NewStudent, "/new-student/<string:first_name>/<string:last_name>/<int:group_id>", methods=['POST'])
 api.add_resource(DeleteStudent, "/delete-student/<int:student_id>", methods=['DELETE'])
 api.add_resource(AddStudentToCourse, "/add-student-to-course/<int:student_id>/<int:course_id>", methods=['POST'])
 api.add_resource(RemoveStudentFromCourse, "/remove-student-from-course/<int:student_id>/<int:course_id>", methods=['DELETE'])

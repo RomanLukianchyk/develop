@@ -1,9 +1,9 @@
 from sqlalchemy.orm import sessionmaker
 from models import GroupModel, CourseModel, StudentModel, engine
 from sqlalchemy import func
+
 Session = sessionmaker(bind=engine)
 session = Session()
-
 
 
 def count_students_in_groups(max_students=20):
@@ -14,6 +14,7 @@ def count_students_in_groups(max_students=20):
         .having(func.count(StudentModel.id) <= max_students)
         .all()
     )
+
 
 def find_students_in_course(course_name=''):
     return (
@@ -69,14 +70,3 @@ def remove_student_from_course(student_id, course_id):
             print("[INFO] Student is not enrolled in the specified course")
     else:
         print("[INFO] Student or course not found")
-
-
-# try:
-#     print(count_students_in_groups())
-#
-# except Exception as ex:
-#     print("[INFO] Error while working with PostgreSQL", ex)
-#     session.rollback()
-#
-# finally:
-#     session.close()
