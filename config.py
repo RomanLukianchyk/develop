@@ -1,5 +1,11 @@
-host = '127.0.0.1'
-user = "postgres"
-password = "arrowqwe26"
-db_name = "postgres"
+from dotenv import load_dotenv
+import os
+
+load_dotenv('mydata.env')
+
+
+host = os.environ.get('DB_HOST')
+user = os.environ.get('DB_USER')
+password = os.environ.get('DB_PASSWORD')
+db_name = os.environ.get('DB_NAME')
 

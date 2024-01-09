@@ -1,30 +1,49 @@
-from flask import Flask, request, jsonify
+from flask import Flask, jsonify, request
 from flask_restful import Resource, Api
-from ORM import count_students_in_groups
-from models import Base, engine, CourseModel, StudentModel
+from create_tables import create_tables
+from generate_testdata import generate_test_data
+from orm import Repository
+from models import engine, CourseModel, StudentModel
 from sqlalchemy.orm import sessionmaker
 
 app = Flask(__name__)
 api = Api(app)
 
-Base.metadata.create_all(engine)
 
 Session = sessionmaker(bind=engine)
 session = Session()
+repository = Repository(session)
+
+
+@app.route('/create-tables', methods=['POST'])
+def handle_create_tables():
+    create_tables()
+    return jsonify({"message": "Tables created successfully"})
+
+
+@app.route('/create-testdata', methods=['POST'])
+def handle_create_testdata():
+    generate_test_data()
+    return jsonify({"message": "Test data created successfully"})
 
 
 class Groups(Resource):
     def get(self, max_students=20):
-        groups = count_students_in_groups(max_students)
+        groups = repository.count_students_in_groups(max_students)
         return jsonify([{"name": group.name, "student_count": group.student_count} for group in groups])
 
 
 class StudentsInCourse(Resource):
     def get(self, course_name=''):
+        try:
+            group_id = 1 <= int(request.args.get('group_id', default=0)) <= 10
+        except ValueError:
+            return {"message": "Invalid group_id format. It must be an integer."}, 400
+
         students = (
             session.query(StudentModel)
             .join(StudentModel.courses)
-            .filter(CourseModel.name == course_name)
+            .filter(CourseModel.name == course_name, StudentModel.group_id == group_id)
             .all()
         )
         return [{"id": student.id, "first_name": student.first_name, "last_name": student.last_name} for student in students]
@@ -34,15 +53,11 @@ class NewStudent(Resource):
     def post(self, first_name, last_name, group_id):
         try:
             group_id = int(group_id)
-
-            last_student = session.query(StudentModel).order_by(StudentModel.id.desc()).first()
-            student_id = last_student.id + 1 if last_student else 1
-
-            new_student = StudentModel(id=student_id, group_id=group_id, first_name=first_name, last_name=last_name)
+            new_student = StudentModel(group_id=group_id, first_name=first_name, last_name=last_name)
             session.add(new_student)
             session.commit()
 
-            return {"message": "New student added successfully", "student_id": student_id}
+            return {"message": f"New student added successfully: Student id {new_student.id}"}
 
         except ValueError:
             return {"message": "Invalid group_id format"}, 400
@@ -120,7 +135,6 @@ api.add_resource(DeleteStudent, "/delete-student/<int:student_id>", methods=['DE
 api.add_resource(AddStudentToCourse, "/add-student-to-course/<int:student_id>/<int:course_id>", methods=['POST'])
 api.add_resource(RemoveStudentFromCourse, "/remove-student-from-course/<int:student_id>/<int:course_id>", methods=['DELETE'])
 
-
-
 if __name__ == "__main__":
     app.run(debug=True)
+
