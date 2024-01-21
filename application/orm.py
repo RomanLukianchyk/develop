@@ -1,6 +1,7 @@
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from models import GroupModel, CourseModel, StudentModel
+from application.models import GroupModel, CourseModel, StudentModel
+
 
 class Repository:
     def __init__(self, session: Session):
@@ -65,4 +66,3 @@ class Repository:
                 print("[INFO] Student is not enrolled in the specified course")
         else:
             print("[INFO] Student or course not found")
-
