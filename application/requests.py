@@ -11,6 +11,7 @@ class Groups(Resource):
         groups = self.repository.count_students_in_groups(max_students)
         return jsonify([{"name": group.name, "student_count": group.student_count} for group in groups])
 
+
 class StudentsInCourse(Resource):
     def __init__(self, session):
         self.session = session

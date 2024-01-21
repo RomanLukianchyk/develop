@@ -28,7 +28,7 @@ def handle_create_testdata():
 
 
 api.add_resource(Groups, "/groups/<int:max_students>", resource_class_args=(repository, session), methods=['GET'])
-api.add_resource(StudentsInCourse, "/students-in-course", "/students-in-course/<string:course_name>", resource_class_args=(session,))
+api.add_resource(StudentsInCourse, "/students-in-course", "/students-in-course/<string:course_name>", resource_class_args=(session,), methods=['GET'])
 api.add_resource(NewStudent, "/new-student/<string:first_name>/<string:last_name>/<int:group_id>", resource_class_args=(session,), methods=['POST'])
 api.add_resource(DeleteStudent, "/delete-student/<int:student_id>", resource_class_args=(session,), methods=['DELETE'])
 api.add_resource(AddStudentToCourse, "/add-student-to-course/<int:student_id>/<int:course_id>", resource_class_args=(session,), methods=['POST'])

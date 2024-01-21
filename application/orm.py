@@ -15,7 +15,6 @@ class Repository:
             .having(func.count(StudentModel.id) <= max_students)
             .all()
         )
-
     def find_students_in_course(self, course_name=''):
         return (
             self.session.query(StudentModel)
