@@ -1,6 +1,6 @@
 from flask import jsonify, request
 from flask_restful import Resource
-from application.models import CourseModel, StudentModel
+from application.models import CourseModel, StudentModel, GroupModel
 
 class Groups(Resource):
     def __init__(self, repository, session):
@@ -12,23 +12,21 @@ class Groups(Resource):
         return jsonify([{"name": group.name, "student_count": group.student_count} for group in groups])
 
 
+
+
 class StudentsInCourse(Resource):
     def __init__(self, session):
         self.session = session
 
     def get(self, course_name=''):
-        try:
-            group_id = 1 <= int(request.args.get('group_id', default=0)) <= 10
-        except ValueError:
-            return {"message": "Invalid group_id format. It must be an integer."}, 400
-
         students = (
             self.session.query(StudentModel)
             .join(StudentModel.courses)
-            .filter(CourseModel.name == course_name, StudentModel.group_id == group_id)
+            .filter(CourseModel.name == course_name)
             .all()
         )
         return [{"id": student.id, "first_name": student.first_name, "last_name": student.last_name} for student in students]
+
 
 class NewStudent(Resource):
     def __init__(self, session):
